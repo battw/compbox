@@ -1,73 +1,90 @@
 "use strict";
 
+/** Throws an error if 'x' isn't a positive integer */
+function assertIsPositiveInteger(x) {
+    if (!Number.isInteger(x) || x < 1) {
+        throw new Error(x + " isn't a positive integer.");
+    }
+}
+
+/** Throws an error if 'x' isn't a non-negative integer */
+function assertIsNonNegativeInteger(x) {
+    if (!Number.isInteger(x) || x < 0) {
+        throw new Error(value + "isn't a non-negative integer.");
+    }
+}
+
 class Word {
-    /** bitString should be a string of 1s and 0s e.g. "100011". */
-    constructor(bitString) {
-        this._checkBitString(bitString);
-        this._bitArray = bitString.split('').map(bit => Boolean(Number(bit)));
-    }
-    
-    /** A private function taking an array of booleans and creating a new 'Word' object. **/
-    static _fromBitArray(bitArray) {
-        return new Word(bitArray.map(Number).map(String).join(''));
+    /** 'value' is a non-negative integer.
+        'wordLength' is the number of bits in the word.
+        Most-significant bits are discarded if they don't fit within the word size.
+     */
+    constructor(value, wordLength) {
+        assertIsNonNegativeInteger(value);
+        assertIsPositiveInteger(wordLength);
+
+        this._size = wordLength;
+        this._bitMask = 2**wordLength - 1;
+        this._value = value & this._bitMask;
     }
 
-    /** The number of bits in the 'Word'. **/
-    get size() {
-        return this._bitArray.length;
-    }
-
-    /** A private function which throws an error if bitString isn't a string or
-        it contains a character other than '1' or '0' **/ 
-    _checkBitString(bitString) {
-        if (typeof bitString !== 'string') {
-            throw new Error("Bit string isn't string: " + bitString);
-        }
-        for (let i = 0; i < bitString.length; i++) {
-            if (bitString[i] !== "0" && bitString[i] !== "1") {
-                throw new Error("bitString character doesn't equal '0' or '1': "
-                                + bitString[i])
-            }
+    /** Throws an error if 'word' is not an instance of Word. */
+    static assertIsWord(word) {
+        if (! word instanceof Word) {
+            throw new Error("'word' isn't an instance of word: " + word); 
         }
     }
 
-    /** A private function which applies the function op to each bit of 'this' and 
-        'otherWord'.
-        op should be a function which takes two booleans.
-        otherWord should be a word of the same length as this word. */
-    _applyBitwiseOp(op, otherWord) {
-        if (!otherWord instanceof Word) {
-            throw new Error("'otherWord' isn't instance of Word");
-        }
-        if (this.size !== otherWord.size) {
-            throw new Error("'otherWord' is different size to this word");
-        }
-        return  Word._fromBitArray(
-            this._bitArray.map((bit, i) => op(bit, otherWord._bitArray[i])));
-                        
-    }
-
-    /** Bitwise AND between 'this' and 'otherWord' */
+    /** Bitwise AND between 'this' and 'otherWord'.
+     The result has the same number of bits as 'this'. */
     and(otherWord) {
-        return this._applyBitwiseOp((x, y) => x && y, otherWord);
+        Word.assertIsWord(otherWord);
+        let value = (this._value & otherWord._value) & this._bitMask;
+        return new Word(value, this._size);
     }
 
-    /** Bitwise OR between 'this' and 'otherWord' */
+    /** Bitwise OR between 'this' and 'otherWord'.
+     The result has the same number of bits as 'this'. */
     or(otherWord) {
-        return this._applyBitwiseOp((x, y) => x || y, otherWord);
+        Word.assertIsWord(otherWord);
+        let value = (this._value | otherWord._value) & this._bitMask; 
+        return new Word(value, this._size);
     }
 
-    /** Bitwise NOT on 'this' */
+    /** Bitwise XOR between 'this' and 'otherWord'.
+     The result has the same number of bits as 'this'. */
+    xor(otherWord) {
+        Word.assertIsWord(otherWord);
+        let value = (this._value ^ otherWord._value) & this._bitMask; 
+        return new Word(value, this._size);
+    }
+
+    /** Bitwise NOT on 'this'. */
     not() {
-        return Word._fromBitArray(this._bitArray.map(x => !x));
+        let value = ~this._value & this._bitMask;
+        return new Word(value, this._size);
     }
 
+    /** Shifts the word left, discarding any overflowing bits and zero filling
+        from the right. */
     leftShift(n) {
+        assertIsNonNegativeInteger(n);
+        let value = (this._value << n) & this._bitMask;
+        return new Word(value, this._size);
     }
 
-    /** e.g. '01001' */
+    /** Shifts the word right, discarding any overflowing bits and zero filling
+        from the left. */
+    rightShift(n) {
+        assertIsNonNegativeInteger(n);
+        let value = (this._value >>> n) & this._bitMask;
+        return new Word(value, this._size);
+    }
+
+    /** e.g. '01001', where the string has length equal to the word size. */
     toString() {
-        return this._bitArray.map(Number).map(String).join('');
+        let bitString = (this._value | 2**this._size).toString(2); 
+        return bitString.slice(1);
     }
 }
 
