@@ -1,5 +1,11 @@
 "use strict";
 
+
+function assertIsInteger(x) {
+    if (!Number.isInteger(x)) {
+        throw new Error(x + " is not an integer");
+    }
+}
 /** Throws an error if 'x' isn't a positive integer */
 function assertIsPositiveInteger(x) {
     if (!Number.isInteger(x) || x < 1) {
@@ -28,12 +34,18 @@ class Word {
         this._value = value & this._bitMask;
     }
 
+
+    get size() {
+        return this._size;
+    }
+
     /** Throws an error if 'word' is not an instance of Word. */
     static assertIsWord(word) {
         if (! word instanceof Word) {
             throw new Error("'word' isn't an instance of word: " + word); 
         }
     }
+
 
     /** Bitwise AND between 'this' and 'otherWord'.
      The result has the same number of bits as 'this'. */
@@ -89,13 +101,79 @@ class Word {
 }
 
 class Memory {
+    get size() {
+        return this._memorySize;
+    }
+    get wordSize() {
+        return this._wordSize;
+    }
     constructor(wordSize, memorySize) {
-        this.wordSize = wordSize;
-        this.memorySize = memorySize;
+        this._wordSize = wordSize;
+        this._memorySize = memorySize;
+        this._memoryArray = new Array(memorySize); 
+        this._populateMemory();
+    }
+
+    _populateMemory() {
+        for (let i = 0; i < this._memorySize; i++) {
+            this._memoryArray[i] = new Word(0, this._wordSize);
+        }
+    }
+
+    read(address) {
+        this._assertValidAddress(address);
+        return this._memoryArray[address];
+    }
+
+    write(value, address) {
+        this._assertValidAddress(address);
+        this._memoryArray[address] = new Word(value, this._wordSize);
+    }
+
+    _assertValidAddress(address) {
+        assertIsInteger(address);
+        if (address < 0 || address > this._memorySize) {
+            throw new Error("address out of bounds");
+        }
     }
 }
+
+class MemoryView {
+    constructor(memory, div) {
+        this._memory = memory;
+        this._div = div;
+        this._height = Math.ceil(Math.sqrt(memory.size));
+        this._width = this._height;
+        this.refresh();
+    }
+
+    refresh() {
+        let table = this._buildTable();
+        //this._div.removeChild(this._div.firstChild);
+        this._div.appendChild(table);
+    }
+    _buildTable() {
+        let table = document.createElement("table");
+        for (let i = 0; i < this._height; i++) {
+            let tr = document.createElement("tr");
+            table.appendChild(tr);
+            for (let j = 0; j < this._width; j++) {
+                let td = document.createElement("td");
+                td.innerText = this._memory.read(i*this._width + j);
+                tr.appendChild(td);
+            }
+        }
+        return table;
+    }
+}
+
+
 
 window.onload = async () => {
     const wordSize = 8;
     const memorySize = 256;
+    let memory = new Memory(wordSize, memorySize);
+    memory.write(31, 3);
+    let memoryDiv = document.getElementById('memory');
+    let memoryView = new MemoryView(memory, memoryDiv);
 }
