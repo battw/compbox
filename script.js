@@ -16,7 +16,7 @@ function assertIsPositiveInteger(x) {
 /** Throws an error if 'x' isn't a non-negative integer */
 function assertIsNonNegativeInteger(x) {
     if (!Number.isInteger(x) || x < 0) {
-        throw new Error(value + "isn't a non-negative integer.");
+        throw new Error(x + "isn't a non-negative integer.");
     }
 }
 
@@ -37,6 +37,10 @@ class Word {
 
     get size() {
         return this._size;
+    }
+
+    get value() {
+        return this._value;
     }
 
     /** Throws an error if 'word' is not an instance of Word. */
@@ -148,8 +152,11 @@ class MemoryView {
     }
 
     refresh() {
+        console.log("refreshing memory view");
         let table = this._buildTable();
-        //this._div.removeChild(this._div.firstChild);
+        if (this._div.firstChild) {
+            this._div.removeChild(this._div.firstChild);
+        }
         this._div.appendChild(table);
     }
     _buildTable() {
@@ -167,13 +174,43 @@ class MemoryView {
     }
 }
 
+class Controller {
+    constructor(memory, memoryView, inputDiv) {
+        this._memory = memory;
+        this._memoryView = memoryView;
+        this._inputDiv = inputDiv;
+        this._addButtons();
+    }
 
+    _addButtons() {
+        this._testButton = document.createElement("button");
+        this._testButton.innerText = "TEST";
+        this._inputDiv.appendChild(this._testButton);
+        this._testButton.addEventListener("click", () => this._memoryView.refresh());
+
+        this._andButton = document.createElement("button");
+        this._andButton.innerText = "AND";
+        this._inputDiv.appendChild(this._andButton);
+        this._andButton.addEventListener("click", () => {
+            let a = this._memory.read(0);
+            let b = this._memory.read(1);
+            this._memory.write(a.and(b).value, 2);
+            this._memoryView.refresh();
+        });
+
+    }
+
+
+}
 
 window.onload = async () => {
     const wordSize = 8;
     const memorySize = 256;
     let memory = new Memory(wordSize, memorySize);
-    memory.write(31, 3);
+    memory.write(255, 0);
+    memory.write(31, 1);
     let memoryDiv = document.getElementById('memory');
     let memoryView = new MemoryView(memory, memoryDiv);
+    let inputDiv = document.getElementById("input");
+    let controller = new Controller(memory, memoryView, inputDiv);
 }
