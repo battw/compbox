@@ -20,89 +20,6 @@ function assertIsNonNegativeInteger(x) {
     }
 }
 
-class Word {
-    /** 'value' is a non-negative integer.
-        'wordLength' is the number of bits in the word.
-        Most-significant bits are discarded if they don't fit within the word size.
-     */
-    constructor(value, wordLength) {
-        assertIsNonNegativeInteger(value);
-        assertIsPositiveInteger(wordLength);
-
-        this._size = wordLength;
-        this._bitMask = 2**wordLength - 1;
-        this._value = value & this._bitMask;
-    }
-
-
-    get size() {
-        return this._size;
-    }
-
-    get value() {
-        return this._value;
-    }
-
-    /** Throws an error if 'word' is not an instance of Word. */
-    static assertIsWord(word) {
-        if (! word instanceof Word) {
-            throw new Error("'word' isn't an instance of word: " + word); 
-        }
-    }
-
-
-    /** Bitwise AND between 'this' and 'otherWord'.
-     The result has the same number of bits as 'this'. */
-    and(otherWord) {
-        Word.assertIsWord(otherWord);
-        let value = (this._value & otherWord._value) & this._bitMask;
-        return new Word(value, this._size);
-    }
-
-    /** Bitwise OR between 'this' and 'otherWord'.
-     The result has the same number of bits as 'this'. */
-    or(otherWord) {
-        Word.assertIsWord(otherWord);
-        let value = (this._value | otherWord._value) & this._bitMask; 
-        return new Word(value, this._size);
-    }
-
-    /** Bitwise XOR between 'this' and 'otherWord'.
-     The result has the same number of bits as 'this'. */
-    xor(otherWord) {
-        Word.assertIsWord(otherWord);
-        let value = (this._value ^ otherWord._value) & this._bitMask; 
-        return new Word(value, this._size);
-    }
-
-    /** Bitwise NOT on 'this'. */
-    not() {
-        let value = ~this._value & this._bitMask;
-        return new Word(value, this._size);
-    }
-
-    /** Shifts the word left, discarding any overflowing bits and zero filling
-        from the right. */
-    leftShift(n) {
-        assertIsNonNegativeInteger(n);
-        let value = (this._value << n) & this._bitMask;
-        return new Word(value, this._size);
-    }
-
-    /** Shifts the word right, discarding any overflowing bits and zero filling
-        from the left. */
-    rightShift(n) {
-        assertIsNonNegativeInteger(n);
-        let value = (this._value >>> n) & this._bitMask;
-        return new Word(value, this._size);
-    }
-
-    /** e.g. '01001', where the string has length equal to the word size. */
-    toString() {
-        let bitString = (this._value | 2**this._size).toString(2); 
-        return bitString.slice(1);
-    }
-}
 
 class Memory {
     get size() {
@@ -113,6 +30,7 @@ class Memory {
     }
     constructor(wordSize, memorySize) {
         this._wordSize = wordSize;
+        this._wordMask = 2**wordSize - 1;
         this._memorySize = memorySize;
         this._memoryArray = new Array(memorySize); 
         this._populateMemory();
@@ -120,7 +38,7 @@ class Memory {
 
     _populateMemory() {
         for (let i = 0; i < this._memorySize; i++) {
-            this._memoryArray[i] = new Word(0, this._wordSize);
+            this._memoryArray[i] = 0;
         }
     }
 
@@ -131,7 +49,8 @@ class Memory {
 
     write(value, address) {
         this._assertValidAddress(address);
-        this._memoryArray[address] = new Word(value, this._wordSize);
+        this._assertValidValue(value);
+        this._memoryArray[address] = value & this._wordMask;
     }
 
     _assertValidAddress(address) {
@@ -139,6 +58,10 @@ class Memory {
         if (address < 0 || address > this._memorySize) {
             throw new Error("address out of bounds");
         }
+    }
+
+    _assertValidValue(value) {
+        assertIsInteger(value);
     }
 }
 
@@ -152,13 +75,13 @@ class MemoryView {
     }
 
     refresh() {
-        console.log("refreshing memory view");
         let table = this._buildTable();
         if (this._div.firstChild) {
             this._div.removeChild(this._div.firstChild);
         }
         this._div.appendChild(table);
     }
+
     _buildTable() {
         let table = document.createElement("table");
         for (let i = 0; i < this._height; i++) {
@@ -166,12 +89,19 @@ class MemoryView {
             table.appendChild(tr);
             for (let j = 0; j < this._width; j++) {
                 let td = document.createElement("td");
-                td.innerText = this._memory.read(i*this._width + j);
+                let value = this._memory.read(i*this._width + j);
+                td.innerText = this._toBinaryString(value);
                 tr.appendChild(td);
             }
         }
         return table;
     }
+
+    _toBinaryString(value) {
+        value |= 2**this._memory.wordSize;
+        return value.toString(2).slice(1);
+    }
+
 }
 
 class Controller {
@@ -194,13 +124,10 @@ class Controller {
         this._andButton.addEventListener("click", () => {
             let a = this._memory.read(0);
             let b = this._memory.read(1);
-            this._memory.write(a.and(b).value, 2);
+            this._memory.write(a & b, 3);
             this._memoryView.refresh();
         });
-
     }
-
-
 }
 
 window.onload = async () => {
