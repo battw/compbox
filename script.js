@@ -104,18 +104,18 @@ class MemoryView {
         let height = Math.ceil(Math.sqrt(memory.size));
         let width = height;
         for (let i = 0; i < height; i++) {
-            let tr = document.createElement("tr");
-            table.appendChild(tr);
+            let row = table.insertRow();
             for (let j = 0; j < width; j++) {
-                let td = document.createElement("td");
+                let cell = row.insertCell();
                 let value = memory.read(i*width + j);
-                td.innerText = this._toBinaryString(value, memory.wordSize);
-                tr.appendChild(td);
+                cell.innerText = this._toBinaryString(value, memory.wordSize);
+                console.log(row.rowIndex);
             }
         }
         return table;
     }
 
+    //TODO decide where to put this function
     _toBinaryString(value, wordSize) {
         value |= 2**wordSize;
         return value.toString(2).slice(1);
@@ -132,11 +132,6 @@ class Controller {
     }
 
     _addButtons() {
-        this._testButton = document.createElement("button");
-        this._testButton.innerText = "TEST";
-        this._inputDiv.appendChild(this._testButton);
-        this._testButton.addEventListener("click", () => this._memoryView.refresh());
-
         this._andButton = document.createElement("button");
         this._andButton.innerText = "AND";
         this._inputDiv.appendChild(this._andButton);
@@ -156,9 +151,10 @@ window.onload = async () => {
     memory.write(31, 1);
     let memoryView = new MemoryView();
     memory.registerObserver(memoryView);
-    document.body.appendChild(memoryView.div);
+    let memoryViewContainer = document.getElementById("memory-view-container");
+    memoryViewContainer.appendChild(memoryView.div);
 
 
-    let inputDiv = document.getElementById("input");
+    let inputDiv = document.getElementById("input-container");
     let controller = new Controller(memory, memoryView, inputDiv);
 }
