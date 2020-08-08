@@ -6,6 +6,7 @@ function assertIsInteger(x) {
         throw new Error(x + " is not an integer");
     }
 }
+
 /** Throws an error if 'x' isn't a positive integer */
 function assertIsPositiveInteger(x) {
     if (!Number.isInteger(x) || x < 1) {
@@ -20,7 +21,6 @@ function assertIsNonNegativeInteger(x) {
     }
 }
 
-
 class Memory {
     get size() {
         return this._memorySize;
@@ -34,6 +34,7 @@ class Memory {
         this._memorySize = memorySize;
         this._memoryArray = new Array(memorySize); 
         this._populateMemory();
+        this._observerArray = new Array(0);
     }
 
     _populateMemory() {
@@ -51,6 +52,7 @@ class Memory {
         this._assertValidAddress(address);
         this._assertValidValue(value);
         this._memoryArray[address] = value & this._wordMask;
+        this._updateObservers();
     }
 
     _assertValidAddress(address) {
@@ -63,42 +65,59 @@ class Memory {
     _assertValidValue(value) {
         assertIsInteger(value);
     }
+
+    registerObserver(obs) {
+        this._observerArray.push(obs);
+        obs.update(this);
+    }
+
+    removeObserver(obs) {
+        this._observerArray.filter(o => obs !== o);
+    }
+
+    _updateObservers() {
+        this._observerArray.forEach(o => o.update(this));
+    }
 }
 
 class MemoryView {
-    constructor(memory, div) {
-        this._memory = memory;
-        this._div = div;
-        this._height = Math.ceil(Math.sqrt(memory.size));
-        this._width = this._height;
-        this.refresh();
+    constructor() {
+        this._div = document.createElement("div")
+        this._div.className = "memory-view";
     }
 
-    refresh() {
-        let table = this._buildTable();
+    get div() {
+        return this._div;
+    }
+
+    update(memory) {
+        //console.log(memory);
+        let table = this._buildTable(memory);
         if (this._div.firstChild) {
             this._div.removeChild(this._div.firstChild);
         }
         this._div.appendChild(table);
     }
 
-    _buildTable() {
+    _buildTable(memory) {
         let table = document.createElement("table");
-        for (let i = 0; i < this._height; i++) {
+        let height = Math.ceil(Math.sqrt(memory.size));
+        let width = height;
+        for (let i = 0; i < height; i++) {
             let tr = document.createElement("tr");
             table.appendChild(tr);
-            for (let j = 0; j < this._width; j++) {
+            for (let j = 0; j < width; j++) {
                 let td = document.createElement("td");
-                let value = this._memory.read(i*this._width + j);
-                td.innerText = this._toBinaryString(value);
+                let value = memory.read(i*width + j);
+                td.innerText = this._toBinaryString(value, memory.wordSize);
                 tr.appendChild(td);
             }
         }
         return table;
     }
 
-    _toBinaryString(value) {
-        value |= 2**this._memory.wordSize;
+    _toBinaryString(value, wordSize) {
+        value |= 2**wordSize;
         return value.toString(2).slice(1);
     }
 
@@ -125,7 +144,6 @@ class Controller {
             let a = this._memory.read(0);
             let b = this._memory.read(1);
             this._memory.write(a & b, 3);
-            this._memoryView.refresh();
         });
     }
 }
@@ -136,8 +154,11 @@ window.onload = async () => {
     let memory = new Memory(wordSize, memorySize);
     memory.write(255, 0);
     memory.write(31, 1);
-    let memoryDiv = document.getElementById('memory');
-    let memoryView = new MemoryView(memory, memoryDiv);
+    let memoryView = new MemoryView();
+    memory.registerObserver(memoryView);
+    document.body.appendChild(memoryView.div);
+
+
     let inputDiv = document.getElementById("input");
     let controller = new Controller(memory, memoryView, inputDiv);
 }
