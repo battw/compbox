@@ -75,7 +75,7 @@ class Memory {
 
     registerObserver(obs) {
         this._observers.push(obs);
-        obs.update(this);
+        obs.memoryUpdate(this);
     }
 
     removeObserver(obs) {
@@ -83,7 +83,7 @@ class Memory {
     }
 
     _updateObservers() {
-        this._observers.forEach(o => o.update(this));
+        this._observers.forEach(o => o.memoryUpdate(this));
     }
 }
 
@@ -102,12 +102,12 @@ class LogicUnit {
         this._observers = new Array(0);
     }
 
-    _readMemory(address) {
+    readMemory(address) {
         return this._memory.read(address);
     }
 
     or(address) {
-        this.accumulator |= this._readMemory(address);
+        this.accumulator |= this.readMemory(address);
     }
 
     not() {
@@ -129,26 +129,58 @@ class LogicUnit {
 
    registerObserver(obs) {
        this._observers.push(obs);
-       this._updateObservers()
+       obs.logicUnitUpdate(this);
    }
 
    _updateObservers() {
-        this._observers.forEach(obs => obs.update(this));
+        this._observers.forEach(obs => obs.logicUnitUpdate(this));
    }
 }
 
+class AddressRegister {
+    get address() {
+        return this._address;
+    }
+
+    set address(address) {
+        this._address = address;
+        this._value = this._memory.read(address);
+        this._updateObservers();
+    }
+
+    get value() {
+        return this._value;
+    }
+
+    constructor(memory) {
+       this._memory = memory;
+       this._address = 0;
+       this._value = memory.read(0);
+       this._observers = new Array(0);
+    }
+
+    registerObserver(obs) {
+       this._observers.push(obs);
+       obs.addressRegisterUpdate(this);
+    }
+
+    _updateObservers() {
+        this._observers.forEach((obs) => obs.addressRegisterUpdate(this));
+    }
+}
+
 class MemoryView {
+    get div() {
+        return this._div;
+    }
+
     constructor() {
         this._div = document.createElement("div")
         this._div.className = "memory-view";
         this._cellClickObservers = new Array(0);
     }
 
-    get div() {
-        return this._div;
-    }
-
-    update(memory) {
+    memoryUpdate(memory) {
         let table = this._buildTable(memory);
         if (this._div.firstChild) {
             this._div.removeChild(this._div.firstChild);
@@ -180,46 +212,89 @@ class MemoryView {
     }
 
     _reportCellClick(address) {
-        this._cellClickObservers.forEach(obs => obs.reportCellClick(address));
+        this._cellClickObservers.forEach(obs => obs.onMemoryViewCellClick(address));
     }
 }
 
-//TODO separate the logic from the html.
-class Controller {
-    constructor(memory, logicUnit, inputDiv) {
-        this._memory = memory;
-        this._logicUnit = logicUnit;
-        this._inputDiv = inputDiv;
-        this._address = 0;
-        this._addInputElements();
+class LogicView {
+    _wordSize;
+    _div;
+    _registerField;
+    _addressField;
+    _valueField;
+
+    get div() {
+        return this._div;
     }
 
-    _addInputElements() {
-        this._addButton("or-button", "OR", () => this._logicUnit.or(this._address));
-        this._addButton("not-button", "NOT", () => this._logicUnit.not());
-        this._addButton("left-shift-button", "LSHIFT", () => this._logicUnit.leftShift());
-        this._addButton("right-shift-button", "RSHIFT", () => this._logicUnit.rightShift());
-        this._addButton("store-button", "STORE", () => this._logicUnit.store(this._address));
+    constructor(wordSize) {
+        this._wordSize = wordSize;
+        this._div = document.createElement("div");
+        this._div.setAttribute("id", "logic-view");
+        this._addFields();
+    }
+
+    _addFields() {
         this._addLabel("accumulator-label", "Accumulator:");
-        this._addLabel("register-field", "");
+        this._registerField = this._addLabel("register-field", "");
         this._addLabel("address-label", "Address:");
-        this._addTextField("address-field");
+        this._addressField = this._addTextField("address-field");
         this._addLabel("value-label", "Value:");
-        this._addLabel("value-field", "");
-        this.setAddress(0);
+        this._valueField = this._addLabel("value-field", "");
+    }
+
+    _addLabel(id, text) {
+        let label = document.createElement("label");
+        label.setAttribute("id", id);
+        label.innerText = text;
+        this._div.appendChild(label);
+        return label;
     }
 
     _addTextField(id) {
         let textField = document.createElement("input");
         textField.setAttribute("id", id);
         textField.setAttribute("type", "text");
-        this._inputDiv.appendChild(textField);
+        this._div.appendChild(textField);
+        return textField;
     }
-    _addLabel(id, text) {
-        let label = document.createElement("label");
-        label.setAttribute("id", id);
-        label.innerText = text;
-        this._inputDiv.appendChild(label);
+
+    // Method for LogicUnit observer callback.
+    logicUnitUpdate(logicUnit) {
+        this._registerField.innerText = toBinaryString(logicUnit.accumulator, this._wordSize);
+    }
+
+    addressRegisterUpdate(addressRegister) {
+        if (this._addressField && this._valueField) {
+            this._addressField.value = toBinaryString(addressRegister.address, this._wordSize);
+            this._valueField.innerText = toBinaryString(addressRegister.value, this._wordSize);
+        }
+    }
+}
+
+class Controller {
+    get div() {
+        return this._div;
+    }
+
+    constructor(logicUnit, addressRegister) {
+        this._logicUnit = logicUnit;
+        this._addressRegister = addressRegister;
+        this._div = document.createElement("div");
+
+        this._addInputElements();
+    }
+
+    _addInputElements() {
+        this._addButtons();
+    }
+
+    _addButtons() {
+        this._addButton("or-button", "OR", () => this._logicUnit.or(this._addressRegister.address));
+        this._addButton("not-button", "NOT", () => this._logicUnit.not());
+        this._addButton("left-shift-button", "LSHIFT", () => this._logicUnit.leftShift());
+        this._addButton("right-shift-button", "RSHIFT", () => this._logicUnit.rightShift());
+        this._addButton("store-button", "STORE", () => this._logicUnit.store(this._addressRegister.address));
     }
 
     _addButton(id, text, callback) {
@@ -227,44 +302,41 @@ class Controller {
         button.setAttribute("id", id);
         button.innerText = text;
         button.addEventListener("click", callback);
-        this._inputDiv.appendChild(button);
-    }
-    // Method for cellClickObserver callback from MemoryView.
-    reportCellClick(address) {
-        this.setAddress(address);
+        this._div.appendChild(button);
     }
 
     setAddress(address) {
-        this._address  = address;
-        let addressField  = document.getElementById("address-field");
-        let valueField = document.getElementById("value-field");
-        if (addressField && valueField) {
-            addressField.value = toBinaryString(address, this._memory.wordSize);
-            valueField.innerText = toBinaryString(this._memory.read(address), this._memory.wordSize);
-        }
+        this._addressRegister.address = address;
     }
 
-    update(logicUnit) {
-        console.log("update")
-        let registerField = document.getElementById("register-field");
-        registerField.innerText = toBinaryString(logicUnit.accumulator, this._memory.wordSize);
+    // Method for cellClickObserver callback from MemoryView.
+    onMemoryViewCellClick(address) {
+        this.setAddress(address);
     }
 }
 
 window.onload = async () => {
-    const wordSize = 8;
+    const wordSize = 4;
     const memorySize = 256;
-    let memory = new Memory(wordSize, memorySize);
-    memory.write(255, 0);
-    memory.write(31, 1);
-    let memoryView = new MemoryView();
-    memory.registerObserver(memoryView);
-    let memoryViewContainer = document.getElementById("memory-view-container");
-    memoryViewContainer.appendChild(memoryView.div);
-    let logicUnit = new LogicUnit(memory);
 
-    let inputDiv = document.getElementById("input-container");
-    let controller = new Controller(memory, logicUnit, inputDiv);
+    let memoryViewContainer = document.getElementById("memory-view-container");
+    let controllerContainer = document.getElementById("command-unit");
+
+    let memory = new Memory(wordSize, memorySize);
+    let memoryView = new MemoryView();
+    let logicUnit = new LogicUnit(memory);
+    let logicView = new LogicView(wordSize);
+    let addressRegister = new AddressRegister(memory);
+    let controller = new Controller(logicUnit, addressRegister);
+
+    memory.registerObserver(memoryView);
     memoryView._registerCellClickObserver(controller);
-    logicUnit.registerObserver(controller);
+    logicUnit.registerObserver(logicView);
+    addressRegister.registerObserver(logicView);
+
+    memoryViewContainer.appendChild(memoryView.div);
+    controllerContainer.appendChild(logicView.div);
+    controllerContainer.appendChild(controller.div);
+
+    memory.write(1, 0);
 }
