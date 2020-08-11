@@ -26,6 +26,12 @@ function toBinaryString(value, wordSize) {
 }
 
 class Memory {
+    _wordSize;
+    _wordMask;
+    _memorySize;
+    _memoryArray;
+    _observers;
+
     get size() {
         return this._memorySize;
     }
@@ -88,6 +94,10 @@ class Memory {
 }
 
 class LogicUnit {
+    _memory;
+    _accumulator;
+    _observers;
+
     set accumulator(value) {
         this._accumulator = value & this._memory.wordMask;
         this._updateObservers();
@@ -147,6 +157,11 @@ class LogicUnit {
 }
 
 class AddressRegister {
+    _memory;
+    _address;
+    _value;
+    _observers;
+
     get address() {
         return this._address;
     }
@@ -179,6 +194,9 @@ class AddressRegister {
 }
 
 class MemoryView {
+    _div;
+    _cellClickObservers;
+
     get div() {
         return this._div;
     }
@@ -282,6 +300,10 @@ class LogicView {
 }
 
 class Controller {
+    _logicUnit;
+    _addressRegister;
+    _div;
+
     get div() {
         return this._div;
     }
@@ -316,6 +338,7 @@ class Controller {
         this._div.appendChild(button);
     }
 
+
     setAddress(address) {
         this._addressRegister.address = address;
     }
@@ -327,8 +350,8 @@ class Controller {
 }
 
 window.onload = async () => {
-    const wordSize = 4;
-    const memorySize = 256;
+    const wordSize = 8;
+    const memorySize = 2**wordSize;
 
     let memoryViewContainer = document.getElementById("memory-view-container");
     let controllerContainer = document.getElementById("command-unit");
