@@ -25,6 +25,17 @@ function toBinaryString(value, wordSize) {
     return value.toString(2).slice(1);
 }
 
+function createDiv(id, classes) {
+    let div = document.createElement("div");
+    if (typeof id === "string" && id.length > 0) {
+        div.setAttribute("id", id);
+    }
+    if (typeof id === "string" && id.length > 0) {
+        div.className = classes;
+    }
+    return div;
+}
+
 class Memory {
     _wordSize;
     _wordMask;
@@ -202,8 +213,7 @@ class MemoryView {
     }
 
     constructor() {
-        this._div = document.createElement("div")
-        this._div.className = "memory-view";
+        this._div = createDiv("memory-view");
         this._cellClickObservers = new Array(0);
     }
 
@@ -256,8 +266,7 @@ class LogicView {
 
     constructor(wordSize) {
         this._wordSize = wordSize;
-        this._div = document.createElement("div");
-        this._div.setAttribute("id", "logic-view");
+        this._div = createDiv("logic-view");
         this._addFields();
     }
 
@@ -311,8 +320,7 @@ class Controller {
     constructor(logicUnit, addressRegister) {
         this._logicUnit = logicUnit;
         this._addressRegister = addressRegister;
-        this._div = document.createElement("div");
-
+        this._div = createDiv("controller");
         this._addInputElements();
     }
 
