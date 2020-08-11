@@ -110,6 +110,15 @@ class LogicUnit {
         this.accumulator |= this.readMemory(address);
     }
 
+    and(address) {
+        this.accumulator &= this.readMemory(address);
+    }
+
+    xor(address) {
+        this.accumulator ^= this.readMemory(address);
+    }
+
+
     not() {
         this.accumulator = ~this.accumulator;
     }
@@ -290,7 +299,9 @@ class Controller {
     }
 
     _addButtons() {
+        this._addButton("and-button", "AND", () => this._logicUnit.and(this._addressRegister.address));
         this._addButton("or-button", "OR", () => this._logicUnit.or(this._addressRegister.address));
+        this._addButton("xor-button", "XOR", () => this._logicUnit.xor(this._addressRegister.address));
         this._addButton("not-button", "NOT", () => this._logicUnit.not());
         this._addButton("left-shift-button", "LSHIFT", () => this._logicUnit.leftShift());
         this._addButton("right-shift-button", "RSHIFT", () => this._logicUnit.rightShift());
