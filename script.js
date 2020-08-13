@@ -104,27 +104,27 @@ class Memory {
     }
 }
 
-class LogicUnit {
-    _memory;
+class Machine {
+    memory;
     _accumulator;
     _observers;
 
     set accumulator(value) {
-        this._accumulator = value & this._memory.wordMask;
+        this._accumulator = value & this.memory.wordMask;
         this._updateObservers();
     }
     get accumulator() {
         return this._accumulator;
     }
 
-    constructor(memory) {
-        this._memory = memory;
+    constructor(wordSize, memorySize) {
+        this.memory = new Memory(wordSize, memorySize);
         this._accumulator = 0;
         this._observers = new Array(0);
     }
 
     readMemory(address) {
-        return this._memory.read(address);
+        return this.memory.read(address);
     }
 
     or(address) {
@@ -152,8 +152,12 @@ class LogicUnit {
        this.accumulator >>>= 1;
    }
 
+   load(address) {
+        this.accumulator = this.memory.read(address);
+   }
+
    store(address) {
-        this._memory.write(this.accumulator, address);
+        this.memory.write(this.accumulator, address);
         this._updateObservers();
    }
 
@@ -167,42 +171,6 @@ class LogicUnit {
    }
 }
 
-class AddressRegister {
-    _memory;
-    _address;
-    _value;
-    _observers;
-
-    get address() {
-        return this._address;
-    }
-
-    set address(address) {
-        this._address = address;
-        this._value = this._memory.read(address);
-        this._updateObservers();
-    }
-
-    get value() {
-        return this._value;
-    }
-
-    constructor(memory) {
-       this._memory = memory;
-       this._address = 0;
-       this._value = memory.read(0);
-       this._observers = new Array(0);
-    }
-
-    registerObserver(obs) {
-       this._observers.push(obs);
-       obs.addressRegisterUpdate(this);
-    }
-
-    _updateObservers() {
-        this._observers.forEach((obs) => obs.addressRegisterUpdate(this));
-    }
-}
 
 class MemoryView {
     _div;
@@ -225,7 +193,7 @@ class MemoryView {
         this._div.appendChild(table);
     }
 
-    //TODO Make this clean by extracting subroutines.
+    //TODO Make this clean by extracting subroutines.?
     _buildTable(memory) {
         let table = document.createElement("table");
         let height = Math.ceil(Math.sqrt(memory.size));
@@ -238,7 +206,8 @@ class MemoryView {
                 let value = memory.read(address);
                 cell.innerText = toBinaryString(value, memory.wordSize);
                 cell.setAttribute("data-address", address.toString());
-                cell.addEventListener("click", () => this._reportCellClick(address));
+                cell.addEventListener("click",
+                    () => this._reportCellClick(address));
             }
         }
         return table;
@@ -253,7 +222,7 @@ class MemoryView {
     }
 }
 
-class LogicView {
+class MachineView {
     _wordSize;
     _div;
     _registerField;
@@ -295,31 +264,40 @@ class LogicView {
         return textField;
     }
 
-    // Method for LogicUnit observer callback.
+    // Method for Machine observer callback.
     logicUnitUpdate(logicUnit) {
         this._registerField.innerText = toBinaryString(logicUnit.accumulator, this._wordSize);
     }
 
-    addressRegisterUpdate(addressRegister) {
-        if (this._addressField && this._valueField) {
-            this._addressField.value = toBinaryString(addressRegister.address, this._wordSize);
-            this._valueField.innerText = toBinaryString(addressRegister.value, this._wordSize);
-        }
+    addressRegisterUpdate(address, value) {
+        this._addressField.value = toBinaryString(address, this._wordSize);
+        this._valueField.innerText = toBinaryString(value, this._wordSize);
     }
 }
 
 class Controller {
-    _logicUnit;
-    _addressRegister;
+    _machine;
+    _machineView;
+    _address;
     _div;
 
     get div() {
         return this._div;
     }
 
-    constructor(logicUnit, addressRegister) {
-        this._logicUnit = logicUnit;
-        this._addressRegister = addressRegister;
+    set address(addr) {
+        this._address = addr;
+        this._machineView.addressRegisterUpdate(addr, this._machine.memory.read(addr));
+    }
+
+    get address() {
+        return this._address;
+    }
+
+    constructor(machine, machineView) {
+        this._machine = machine;
+        this._machineView = machineView;
+        this.address = 0;
         this._div = createDiv("controller");
         this._addInputElements();
     }
@@ -329,13 +307,20 @@ class Controller {
     }
 
     _addButtons() {
-        this._addButton("and-button", "AND", () => this._logicUnit.and(this._addressRegister.address));
-        this._addButton("or-button", "OR", () => this._logicUnit.or(this._addressRegister.address));
-        this._addButton("xor-button", "XOR", () => this._logicUnit.xor(this._addressRegister.address));
-        this._addButton("not-button", "NOT", () => this._logicUnit.not());
-        this._addButton("left-shift-button", "LSHIFT", () => this._logicUnit.leftShift());
-        this._addButton("right-shift-button", "RSHIFT", () => this._logicUnit.rightShift());
-        this._addButton("store-button", "STORE", () => this._logicUnit.store(this._addressRegister.address));
+        this._addButton("and-button", "AND",
+            () => this._machine.and(this.address));
+        this._addButton("or-button", "OR",
+            () => this._machine.or(this.address));
+        this._addButton("xor-button", "XOR",
+            () => this._machine.xor(this.address));
+        this._addButton("not-button", "NOT",
+            () => this._machine.not());
+        this._addButton("left-shift-button", "LSHIFT",
+            () => this._machine.leftShift());
+        this._addButton("right-shift-button", "RSHIFT",
+            () => this._machine.rightShift());
+        this._addButton("store-button", "STORE",
+            () => this._machine.store(this.address));
     }
 
     _addButton(id, text, callback) {
@@ -346,14 +331,9 @@ class Controller {
         this._div.appendChild(button);
     }
 
-
-    setAddress(address) {
-        this._addressRegister.address = address;
-    }
-
     // Method for cellClickObserver callback from MemoryView.
     onMemoryViewCellClick(address) {
-        this.setAddress(address);
+        this.address = address;
     }
 }
 
@@ -361,24 +341,22 @@ window.onload = async () => {
     const wordSize = 8;
     const memorySize = 2**wordSize;
 
+
+    let machine = new Machine(wordSize ,memorySize);
+    let memoryView = new MemoryView();
+    let machineView = new MachineView(wordSize);
+    let controller = new Controller(machine, machineView);
+
+    machine.memory.registerObserver(memoryView);
+    memoryView._registerCellClickObserver(controller);
+    machine.registerObserver(machineView);
+
     let memoryViewContainer = document.getElementById("memory-view-container");
     let controllerContainer = document.getElementById("command-unit");
 
-    let memory = new Memory(wordSize, memorySize);
-    let memoryView = new MemoryView();
-    let logicUnit = new LogicUnit(memory);
-    let logicView = new LogicView(wordSize);
-    let addressRegister = new AddressRegister(memory);
-    let controller = new Controller(logicUnit, addressRegister);
-
-    memory.registerObserver(memoryView);
-    memoryView._registerCellClickObserver(controller);
-    logicUnit.registerObserver(logicView);
-    addressRegister.registerObserver(logicView);
-
     memoryViewContainer.appendChild(memoryView.div);
-    controllerContainer.appendChild(logicView.div);
+    controllerContainer.appendChild(machineView.div);
     controllerContainer.appendChild(controller.div);
 
-    memory.write(1, 0);
+    machine.memory.write(1, 0);
 }
