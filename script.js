@@ -172,9 +172,9 @@ class MemoryView {
         return this._div;
     }
 
-    constructor() {
+    constructor(wordSize) {
+        this._wordSize = wordSize;
         this._div = createDiv("memory-view");
-        this._cellClickObservers = new Array(0);
     }
 
     update(memory) {
@@ -185,22 +185,26 @@ class MemoryView {
         this._div.appendChild(table);
     }
 
-    //TODO Make this clean by extracting subroutines.?
     _buildTable(machine) {
         let table = document.createElement("table");
+        //TODO Height and width should be specified somewhere else.
         let height = Math.ceil(Math.sqrt(machine.memorySize));
         let width = height;
         for (let i = 0; i < height; i++) {
             let row = table.insertRow();
             for (let j = 0; j < width; j++) {
-                let cell = row.insertCell();
-                let address = i*width + j
-                let value = machine.read(address);
-                cell.innerText = toBinaryString(value, machine.wordSize);
-                cell.setAttribute("data-address", address.toString());
+                let address = i*width + j;
+                this._addMemoryCell(row, address, machine.read(address));
             }
         }
         return table;
+    }
+
+    _addMemoryCell(row, address, value) {
+        let cell = row.insertCell();
+        cell.innerText = toBinaryString(value, this._wordSize);
+        cell.setAttribute("data-address", address.toString());
+        cell.className = "memory-cell";
     }
 }
 
@@ -234,7 +238,7 @@ class View {
     constructor(wordSize) {
         this._div = createDiv("logic-view");
         this._wordSize = wordSize;
-        this._memoryView = new MemoryView();
+        this._memoryView = new MemoryView(wordSize);
         this._div.appendChild(this._memoryView.div);
         this._addFields();
     }
@@ -264,7 +268,6 @@ class View {
         return textField;
     }
 
-    // Method for Machine observer callback.
     update(machine) {
         this.accumulator = machine.accumulator;
         this.value = machine.read(this._address);
@@ -297,12 +300,10 @@ class Controller {
         this._machineView = machineView;
         this.address = 0;
         this._div = createDiv("controller");
-        this._addInputElements();
+        this._addButtons();
+        this._registerTableClickCallback();
     }
 
-    _addInputElements() {
-        this._addButtons();
-    }
 
     _addButtons() {
         this._addButton("and-button", "AND",
@@ -317,6 +318,8 @@ class Controller {
             () => this._machine.leftShift());
         this._addButton("right-shift-button", "RSHIFT",
             () => this._machine.rightShift());
+        this._addButton("load-button", "LOAD",
+            () => { this._machine.load(this.address) });
         this._addButton("store-button", "STORE",
             () => { this._machine.store(this.address) });
     }
@@ -327,6 +330,15 @@ class Controller {
         button.innerText = text;
         button.addEventListener("click", callback);
         this._div.appendChild(button);
+    }
+
+    _registerTableClickCallback() {
+        document.addEventListener("click",
+            (event) => {
+            if (event.originalTarget.classList.contains("memory-cell")) {
+                this.address = Number(event.originalTarget.getAttribute("data-address"));
+            }
+        });
     }
 }
 
