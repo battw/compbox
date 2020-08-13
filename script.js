@@ -205,20 +205,35 @@ class MemoryView {
 }
 
 class View {
-    _wordSize;
     _div;
     _registerField;
     _addressField;
     _memoryView;
     _valueField;
+    _address;
+    _value;
 
     get div() {
         return this._div;
     }
 
+    set address(addr) {
+        this._address = addr;
+        this._addressField.innerText = toBinaryString(this._address, this._wordSize);
+    }
+
+    set value(val) {
+        this._value = val;
+        this._valueField.innerText = toBinaryString(val, this._wordSize);
+    }
+
+    set accumulator(acc) {
+        this._registerField.innerText = toBinaryString(acc, this._wordSize);
+    }
+
     constructor(wordSize) {
-        this._wordSize = wordSize;
         this._div = createDiv("logic-view");
+        this._wordSize = wordSize;
         this._memoryView = new MemoryView();
         this._div.appendChild(this._memoryView.div);
         this._addFields();
@@ -251,13 +266,9 @@ class View {
 
     // Method for Machine observer callback.
     update(machine) {
-        this._registerField.innerText = toBinaryString(machine.accumulator, this._wordSize);
+        this.accumulator = machine.accumulator;
+        this.value = machine.read(this._address);
         this._memoryView.update(machine);
-    }
-
-    addressRegisterUpdate(address, value) {
-        this._addressField.innerText = toBinaryString(address, this._wordSize);
-        this._valueField.innerText = toBinaryString(value, this._wordSize);
     }
 }
 
@@ -273,7 +284,8 @@ class Controller {
 
     set address(addr) {
         this._address = addr;
-        this._machineView.addressRegisterUpdate(addr, this._machine.read(addr));
+        this._machineView.address = addr;
+        this._machineView.value = this._machine.read(addr);
     }
 
     get address() {
@@ -306,7 +318,7 @@ class Controller {
         this._addButton("right-shift-button", "RSHIFT",
             () => this._machine.rightShift());
         this._addButton("store-button", "STORE",
-            () => this._machine.store(this.address));
+            () => { this._machine.store(this.address) });
     }
 
     _addButton(id, text, callback) {
@@ -322,8 +334,7 @@ window.onload = async () => {
     const wordSize = 8;
     const memorySize = 2**wordSize;
 
-
-    let machine = new Machine(wordSize ,memorySize);
+    let machine = new Machine(wordSize, memorySize);
     let view = new View(wordSize);
     let controller = new Controller(machine, view);
 
