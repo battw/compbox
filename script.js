@@ -342,6 +342,55 @@ class Controller {
     }
 }
 
+class Instruction {
+    constructor(name, args) {
+        this.name = name
+        this.args = args;
+    }
+}
+
+
+class Program {
+    get length() {
+        return this._instructions.length;
+    }
+
+    constructor() {
+        this._instructions = new Array(0);
+    }
+
+    append(name, args) {
+       this._instructions.push(new Instruction(name, args));
+    }
+
+    insert(name, args, position) {
+        this._instructions.splice(position, 0, new Instruction(name, args));
+    }
+
+    getInstruction(index) {
+        return this._instructions[index];
+    }
+}
+
+class Interpreter {
+    constructor(program, machine) {
+        this._program = program;
+        this._machine = machine;
+    }
+
+    async run() {
+        for (let pc = 0; pc < this._program.length; pc++) {
+            let instruction = this._program.getInstruction(pc);
+            this._machine[instruction.name].apply(this._machine, instruction.args);
+            await sleep(1000);
+        }
+    }
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 window.onload = async () => {
     const wordSize = 8;
     const memorySize = 2**wordSize;
@@ -357,5 +406,57 @@ window.onload = async () => {
     viewContainer.appendChild(view.div);
     viewContainer.appendChild(controller.div);
 
-    machine.write(1, 0);
+    await testInterpreter(machine);
+}
+
+async function testInterpreter(machine) {
+    machine.write(7,  0);
+    machine.write(1, 1);
+    // 7 + 1 = 8
+    let program = new Program();
+    let instructions = [
+        "load", [0],
+        "xor", [1],
+        "store", [2],
+        "load", [0],
+        "and", [1],
+        "leftShift", [],
+        "store", [1],
+        "load", [2],
+        "store", [0],
+        "load", [0],
+        "xor", [1],
+        "store", [2],
+        "load", [0],
+        "and", [1],
+        "leftShift", [],
+        "store", [1],
+        "load", [2],
+        "store", [0],
+        "load", [0],
+        "xor", [1],
+        "store", [2],
+        "load", [0],
+        "and", [1],
+        "leftShift", [],
+        "store", [1],
+        "load", [2],
+        "store", [0],
+        "load", [0],
+        "xor", [1],
+        "store", [2],
+        "load", [0],
+        "and", [1],
+        "leftShift", [],
+        "store", [1],
+        "load", [2],
+        "store", [0],
+       ];
+
+    for (let i = 0; i < instructions.length - 1; i += 2) {
+        program.append(instructions[i], instructions[i+1]);
+    }
+
+    let interpreter = new Interpreter(program, machine);
+    interpreter.run();
 }

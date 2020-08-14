@@ -1,6 +1,7 @@
 ## Refactor Plan
 ### Interface for the Model Computer
 * machine
+    * size
     * wordSize
     * accumulatorValue
     * and(address)
@@ -11,10 +12,8 @@
     * rightShift
     * load(address)
     * store(address)
-    * memory
-        * size
-        * read
-        * write
+    * read
+    * write
      
 ### Example Program (add)
 7+1 = 8
