@@ -357,6 +357,7 @@ class Program {
 
     constructor() {
         this._instructions = new Array(0);
+o        this._observers = new Array(0);
     }
 
     append(name, args) {
@@ -369,6 +370,47 @@ class Program {
 
     getInstruction(index) {
         return this._instructions[index];
+    }
+
+    registerObserver(obs) {
+        this._observers.push(obs);
+        obs.update(this);
+    }
+
+    _updateObservers() {
+        this._observers.forEach(obs => obs.update(this));
+    }
+
+}
+
+class ProgramView {
+
+    get div() {
+        return this._div;
+    }
+
+    constructor(wordSize) {
+        this._wordSize = wordSize;
+        this._div = createDiv("program-view");
+    }
+
+    update(program) {
+        for (let i = 0; i < program.length; i++) {
+            let instruction = program.getInstruction(i);
+            this._addInstruction(instruction.name, instruction.args);
+        }
+    }
+
+    _addInstruction(name, args) {
+        let div = createDiv("", "instruction");
+        let nameLabel = document.createElement("label");
+        nameLabel.innerText = name;
+        let argString = (args.length > 0) ? toBinaryString(args[0], this._wordSize) : "";
+        let argLabel = document.createElement("label");
+        argLabel.innerText = argString;
+        div.appendChild(nameLabel);
+        div.appendChild(argLabel);
+        this._div.appendChild(div);
     }
 }
 
@@ -406,10 +448,10 @@ window.onload = async () => {
     viewContainer.appendChild(view.div);
     viewContainer.appendChild(controller.div);
 
-    await testInterpreter(machine);
+    await testInterpreter(machine, viewContainer);
 }
 
-async function testInterpreter(machine) {
+async function testInterpreter(machine, div) {
     machine.write(7,  0);
     machine.write(1, 1);
     // 7 + 1 = 8
@@ -459,4 +501,9 @@ async function testInterpreter(machine) {
 
     let interpreter = new Interpreter(program, machine);
     interpreter.run();
+
+    let programView = new ProgramView(machine.wordSize);
+    program.registerObserver(programView);
+    div.appendChild(programView.div);
+
 }
