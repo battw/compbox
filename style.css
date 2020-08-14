@@ -1,7 +1,24 @@
+* {
+    background-color: #292929;
+    color: bisque;
+}
 body {
-    font-family: monospace;
+    font-family: "Droid Sans Mono", monospace;
 }
+
+div {
+    margin-bottom: 50px;
+}
+
 label {
-    padding: 2em;
+    padding: 20px;
 }
+
+button {
+    padding: 20px 30px;
+    border-width: 0;
+    background-color: #222222;
+    margin: 2px;
+}
+
 
