@@ -30,7 +30,7 @@ function createDiv(id, classes) {
     if (typeof id === "string" && id.length > 0) {
         div.setAttribute("id", id);
     }
-    if (typeof id === "string" && id.length > 0) {
+    if (typeof classes === "string" && classes.length > 0) {
         div.className = classes;
     }
     return div;
@@ -137,11 +137,11 @@ class Machine {
         this.accumulator = ~this.accumulator;
     }
 
-   leftShift() {
+   lshift() {
        this.accumulator <<= 1;
    }
 
-   rightShift() {
+   rshift() {
        this.accumulator >>>= 1;
    }
 
@@ -255,6 +255,7 @@ class View {
     _addLabel(id, text) {
         let label = document.createElement("label");
         label.setAttribute("id", id);
+        label.className = "display-label";
         label.innerText = text;
         this._div.appendChild(label);
         return label;
@@ -384,6 +385,8 @@ class Program {
 }
 
 class ProgramView {
+    _wordSize;
+    _div;
 
     get div() {
         return this._div;
@@ -395,22 +398,23 @@ class ProgramView {
     }
 
     update(program) {
+        console.log("update")
+        let table = document.createElement("table");
         for (let i = 0; i < program.length; i++) {
             let instruction = program.getInstruction(i);
-            this._addInstruction(instruction.name, instruction.args);
+            this._addInstruction(instruction.name, instruction.args, table);
         }
+        this._div.textContent = "";
+        this._div.appendChild(table);
     }
 
-    _addInstruction(name, args) {
-        let div = createDiv("", "instruction");
-        let nameLabel = document.createElement("label");
-        nameLabel.innerText = name;
+    _addInstruction(name, args, table) {
+        let row = table.insertRow();
+        let nameCell = row.insertCell();
+        nameCell.innerText = name;
         let argString = (args.length > 0) ? toBinaryString(args[0], this._wordSize) : "";
-        let argLabel = document.createElement("label");
-        argLabel.innerText = argString;
-        div.appendChild(nameLabel);
-        div.appendChild(argLabel);
-        this._div.appendChild(div);
+        let argCell = row.insertCell();
+        argCell.innerText = argString;
     }
 }
 
@@ -443,12 +447,14 @@ window.onload = async () => {
 
     machine.registerObserver(view);
 
-    let viewContainer = document.getElementById("view-container");
+    let machineDiv = document.getElementById("machine-div");
+    let programmerDiv = document.getElementById("programmer-div");
 
-    viewContainer.appendChild(view.div);
-    viewContainer.appendChild(controller.div);
 
-    await testInterpreter(machine, viewContainer);
+    machineDiv.appendChild(view.div);
+    machineDiv.appendChild(controller.div);
+
+    await testInterpreter(machine, programmerDiv);
 }
 
 async function testInterpreter(machine, div) {
@@ -462,7 +468,7 @@ async function testInterpreter(machine, div) {
         "store", [2],
         "load", [0],
         "and", [1],
-        "leftShift", [],
+        "lshift", [],
         "store", [1],
         "load", [2],
         "store", [0],
@@ -471,7 +477,7 @@ async function testInterpreter(machine, div) {
         "store", [2],
         "load", [0],
         "and", [1],
-        "leftShift", [],
+        "lshift", [],
         "store", [1],
         "load", [2],
         "store", [0],
@@ -480,7 +486,7 @@ async function testInterpreter(machine, div) {
         "store", [2],
         "load", [0],
         "and", [1],
-        "leftShift", [],
+        "lshift", [],
         "store", [1],
         "load", [2],
         "store", [0],
@@ -489,7 +495,7 @@ async function testInterpreter(machine, div) {
         "store", [2],
         "load", [0],
         "and", [1],
-        "leftShift", [],
+        "lshift", [],
         "store", [1],
         "load", [2],
         "store", [0],
@@ -499,11 +505,10 @@ async function testInterpreter(machine, div) {
         program.append(instructions[i], instructions[i+1]);
     }
 
-    let interpreter = new Interpreter(program, machine);
-    interpreter.run();
-
     let programView = new ProgramView(machine.wordSize);
     program.registerObserver(programView);
     div.appendChild(programView.div);
 
+    let interpreter = new Interpreter(program, machine);
+    await interpreter.run();
 }

@@ -1,17 +1,21 @@
 * {
     background-color: #292929;
     color: bisque;
+    font-size: 14px;
 }
+
+html {
+}
+
 body {
     font-family: "Droid Sans Mono", monospace;
+    display:flex;
 }
 
 div {
+    margin-top: 0;
     margin-bottom: 50px;
-}
-
-label {
-    padding: 20px;
+    margin-right: 20px;
 }
 
 button {
@@ -19,6 +23,13 @@ button {
     border-width: 0;
     background-color: #222222;
     margin: 2px;
+}
+.instruction {
+    margin: 2px;
+}
+
+.display-label {
+    margin: 10px;
 }
 
 
