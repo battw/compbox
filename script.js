@@ -21,7 +21,7 @@ function assertIsNonNegativeInteger(x) {
 }
 
 function toBinaryString(value, wordSize) {
-    value |= 2**wordSize;
+    value |= 2 ** wordSize;
     return value.toString(2).slice(1);
 }
 
@@ -37,28 +37,33 @@ function createDiv(id, classes) {
 }
 
 class Memory {
-    _wordSize;
-    _wordMask;
     _memorySize;
     _memoryArray;
     _observers;
+    _wordSize;
+    _wordMask;
 
-    get size() {
-        return this._memorySize;
+    constructor(wordSize, memorySize) {
+        this._wordSize = wordSize;
+        this._wordMask = 2 ** wordSize - 1;
+        this._memorySize = memorySize;
+        this._memoryArray = new Array(memorySize);
+        this._populateMemory();
+        this._observers = new Array(0);
     }
+
+
     get wordSize() {
         return this._wordSize;
     }
+
+
     get wordMask() {
         return this._wordMask;
     }
-    constructor(wordSize, memorySize) {
-        this._wordSize = wordSize;
-        this._wordMask = 2**wordSize - 1;
-        this._memorySize = memorySize;
-        this._memoryArray = new Array(memorySize); 
-        this._populateMemory();
-        this._observers = new Array(0);
+
+    get size() {
+        return this._memorySize;
     }
 
     _populateMemory() {
@@ -92,16 +97,8 @@ class Memory {
 
 class Machine {
     _memory;
-    _accumulator;
     _observers;
-
-    set accumulator(value) {
-        this._accumulator = value & this._memory.wordMask;
-        this._updateObservers();
-    }
-    get accumulator() {
-        return this._accumulator;
-    }
+    _accumulator;
 
     constructor(wordSize, memorySize) {
         this.wordSize = wordSize;
@@ -109,6 +106,16 @@ class Machine {
         this._memory = new Memory(wordSize, memorySize);
         this._accumulator = 0;
         this._observers = new Array(0);
+    }
+
+
+    get accumulator() {
+        return this._accumulator;
+    }
+
+    set accumulator(value) {
+        this._accumulator = value & this._memory.wordMask;
+        this._updateObservers();
     }
 
     read(address) {
@@ -137,44 +144,45 @@ class Machine {
         this.accumulator = ~this.accumulator;
     }
 
-   lshift() {
-       this.accumulator <<= 1;
-   }
+    lshift() {
+        this.accumulator <<= 1;
+    }
 
-   rshift() {
-       this.accumulator >>>= 1;
-   }
+    rshift() {
+        this.accumulator >>>= 1;
+    }
 
-   load(address) {
+    load(address) {
         this.accumulator = this._memory.read(address);
-   }
+    }
 
-   store(address) {
+    store(address) {
         this._memory.write(this.accumulator, address);
         this._updateObservers();
-   }
+    }
 
-   registerObserver(obs) {
-       this._observers.push(obs);
-       obs.update(this);
-   }
+    registerObserver(obs) {
+        this._observers.push(obs);
+        obs.update(this);
+    }
 
-   _updateObservers() {
+    _updateObservers() {
         this._observers.forEach(obs => obs.update(this));
-   }
+    }
 }
 
 
 class MemoryView {
     _div;
 
-    get div() {
-        return this._div;
-    }
-
     constructor(wordSize) {
         this._wordSize = wordSize;
         this._div = createDiv("memory-view");
+    }
+
+
+    get div() {
+        return this._div;
     }
 
     update(memory) {
@@ -193,7 +201,7 @@ class MemoryView {
         for (let i = 0; i < height; i++) {
             let row = table.insertRow();
             for (let j = 0; j < width; j++) {
-                let address = i*width + j;
+                let address = i * width + j;
                 this._addMemoryCell(row, address, machine.read(address));
             }
         }
@@ -209,22 +217,33 @@ class MemoryView {
 }
 
 class View {
-    _div;
     _registerField;
     _addressField;
     _memoryView;
     _valueField;
+    _div;
     _address;
     _value;
+
+    constructor(wordSize) {
+        this._div = createDiv("logic-view");
+        this._wordSize = wordSize;
+        this._memoryView = new MemoryView(wordSize);
+        this._div.appendChild(this._memoryView.div);
+        this._addFields();
+    }
+
 
     get div() {
         return this._div;
     }
 
+
     set address(addr) {
         this._address = addr;
         this._addressField.innerText = toBinaryString(this._address, this._wordSize);
     }
+
 
     set value(val) {
         this._value = val;
@@ -233,14 +252,6 @@ class View {
 
     set accumulator(acc) {
         this._registerField.innerText = toBinaryString(acc, this._wordSize);
-    }
-
-    constructor(wordSize) {
-        this._div = createDiv("logic-view");
-        this._wordSize = wordSize;
-        this._memoryView = new MemoryView(wordSize);
-        this._div.appendChild(this._memoryView.div);
-        this._addFields();
     }
 
     _addFields() {
@@ -282,20 +293,6 @@ class Controller {
     _address;
     _div;
 
-    get div() {
-        return this._div;
-    }
-
-    set address(addr) {
-        this._address = addr;
-        this._machineView.address = addr;
-        this._machineView.value = this._machine.read(addr);
-    }
-
-    get address() {
-        return this._address;
-    }
-
     constructor(machine, machineView) {
         this._machine = machine;
         this._machineView = machineView;
@@ -305,6 +302,20 @@ class Controller {
         this._registerTableClickCallback();
     }
 
+
+    get address() {
+        return this._address;
+    }
+
+    set address(addr) {
+        this._address = addr;
+        this._machineView.address = addr;
+        this._machineView.value = this._machine.read(addr);
+    }
+
+    get div() {
+        return this._div;
+    }
 
     _addButtons() {
         this._addButton("and-button", "AND",
@@ -320,9 +331,13 @@ class Controller {
         this._addButton("right-shift-button", "RSHIFT",
             () => this._machine.rightShift());
         this._addButton("load-button", "LOAD",
-            () => { this._machine.load(this.address) });
+            () => {
+                this._machine.load(this.address)
+            });
         this._addButton("store-button", "STORE",
-            () => { this._machine.store(this.address) });
+            () => {
+                this._machine.store(this.address)
+            });
     }
 
     _addButton(id, text, callback) {
@@ -336,10 +351,10 @@ class Controller {
     _registerTableClickCallback() {
         document.addEventListener("click",
             (event) => {
-            if (event.originalTarget.classList.contains("memory-cell")) {
-                this.address = Number(event.originalTarget.getAttribute("data-address"));
-            }
-        });
+                if (event.originalTarget.classList.contains("memory-cell")) {
+                    this.address = Number(event.originalTarget.getAttribute("data-address"));
+                }
+            });
     }
 }
 
@@ -352,17 +367,23 @@ class Instruction {
 
 
 class Program {
+    constructor(machine) {
+        this._machine = machine;
+        this._instructions = new Array(0);
+        this._observers = new Array(0);
+        this._programCounter = 0;
+    }
+
     get length() {
         return this._instructions.length;
     }
 
-    constructor() {
-        this._instructions = new Array(0);
-        this._observers = new Array(0);
+    get counter() {
+        return this._programCounter;
     }
 
     append(name, args) {
-       this._instructions.push(new Instruction(name, args));
+        this._instructions.push(new Instruction(name, args));
     }
 
     insert(name, args, position) {
@@ -382,34 +403,45 @@ class Program {
         this._observers.forEach(obs => obs.update(this));
     }
 
+    step() {
+        let instruction = this.getInstruction(this._programCounter);
+        this._machine[instruction.name].apply(this._machine, instruction.args);
+        this._updateObservers();
+        this._programCounter++;
+    }
 }
 
 class ProgramView {
     _wordSize;
-    _div;
-
-    get div() {
-        return this._div;
-    }
 
     constructor(wordSize) {
         this._wordSize = wordSize;
         this._div = createDiv("program-view");
     }
 
+    _div;
+
+    get div() {
+        return this._div;
+    }
+
     update(program) {
-        console.log("update")
         let table = document.createElement("table");
         for (let i = 0; i < program.length; i++) {
             let instruction = program.getInstruction(i);
-            this._addInstruction(instruction.name, instruction.args, table);
+            let isCurrentInstruction = i === program.counter;
+            this._addInstruction(instruction.name, instruction.args, table, isCurrentInstruction);
         }
         this._div.textContent = "";
         this._div.appendChild(table);
     }
 
-    _addInstruction(name, args, table) {
+    _addInstruction(name, args, table, isCurrentInstruction) {
         let row = table.insertRow();
+        row.className = "instruction";
+        if (isCurrentInstruction) {
+            row.className += " instruction-current";
+        }
         let nameCell = row.insertCell();
         nameCell.innerText = name;
         let argString = (args.length > 0) ? toBinaryString(args[0], this._wordSize) : "";
@@ -418,28 +450,14 @@ class ProgramView {
     }
 }
 
-class Interpreter {
-    constructor(program, machine) {
-        this._program = program;
-        this._machine = machine;
-    }
-
-    async run() {
-        for (let pc = 0; pc < this._program.length; pc++) {
-            let instruction = this._program.getInstruction(pc);
-            this._machine[instruction.name].apply(this._machine, instruction.args);
-            await sleep(1000);
-        }
-    }
-}
 
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 window.onload = async () => {
     const wordSize = 8;
-    const memorySize = 2**wordSize;
+    const memorySize = 2 ** wordSize;
 
     let machine = new Machine(wordSize, memorySize);
     let view = new View(wordSize);
@@ -458,10 +476,10 @@ window.onload = async () => {
 }
 
 async function testInterpreter(machine, div) {
-    machine.write(7,  0);
+    machine.write(7, 0);
     machine.write(1, 1);
     // 7 + 1 = 8
-    let program = new Program();
+    let program = new Program(machine);
     let instructions = [
         "load", [0],
         "xor", [1],
@@ -499,16 +517,18 @@ async function testInterpreter(machine, div) {
         "store", [1],
         "load", [2],
         "store", [0],
-       ];
+    ];
 
     for (let i = 0; i < instructions.length - 1; i += 2) {
-        program.append(instructions[i], instructions[i+1]);
+        program.append(instructions[i], instructions[i + 1]);
     }
 
     let programView = new ProgramView(machine.wordSize);
     program.registerObserver(programView);
     div.appendChild(programView.div);
 
-    let interpreter = new Interpreter(program, machine);
-    await interpreter.run();
+    while (program.counter < program.length) {
+        program.step();
+        await sleep(1000);
+    }
 }

@@ -28,6 +28,16 @@ button {
     margin: 2px;
 }
 
+.instruction-current {
+    background-color: bisque;
+    color: #292929;
+}
+
+td {
+    background-color: inherit;
+    color: inherit;
+}
+
 .display-label {
     margin: 10px;
 }
