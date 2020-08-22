@@ -1,3 +1,7 @@
+//TODO replace classname, id and attributename literals with Constants.
+//TODO refactor initialisation of each class to explicitly name each instance variables in constructor.
+
+
 "use strict";
 
 function assertIsInteger(x) {
@@ -115,7 +119,7 @@ class Machine {
 
     set accumulator(value) {
         this._accumulator = value & this._memory.wordMask;
-        this._updateObservers();
+        this.updateObservers();
     }
 
     read(address) {
@@ -124,7 +128,7 @@ class Machine {
 
     write(value, address) {
         this._memory.write(value, address);
-        this._updateObservers();
+        this.updateObservers();
     }
 
     or(address) {
@@ -138,7 +142,6 @@ class Machine {
     xor(address) {
         this.accumulator ^= this.read(address);
     }
-
 
     not() {
         this.accumulator = ~this.accumulator;
@@ -158,7 +161,7 @@ class Machine {
 
     store(address) {
         this._memory.write(this.accumulator, address);
-        this._updateObservers();
+        this.updateObservers();
     }
 
     registerObserver(obs) {
@@ -166,7 +169,7 @@ class Machine {
         obs.update(this);
     }
 
-    _updateObservers() {
+    updateObservers() {
         this._observers.forEach(obs => obs.update(this));
     }
 
@@ -182,6 +185,7 @@ class MemoryView {
     constructor(wordSize) {
         this._wordSize = wordSize;
         this._div = createDiv("memory-view");
+        this._highlightedAddresses = [];
     }
 
 
@@ -189,8 +193,8 @@ class MemoryView {
         return this._div;
     }
 
-    update(memory) {
-        let table = this._buildTable(memory);
+    update(machine) {
+        let table = this._buildTable(machine);
         if (this._div.firstChild) {
             this._div.removeChild(this._div.firstChild);
         }
@@ -216,7 +220,18 @@ class MemoryView {
         let cell = row.insertCell();
         cell.innerText = toBinaryString(value, this._wordSize);
         cell.setAttribute("data-address", address.toString());
-        cell.className = "memory-cell";
+        cell.classList.add("memory-cell");
+        if (this._highlightedAddresses.includes(address)) {
+            cell.classList.add("memory-cell-highlighted");
+        }
+    }
+
+    highlightCell(address) {
+        this._highlightedAddresses.push(address);
+    }
+
+    clearCellHighlights() {
+        this._highlightedAddresses =[];
     }
 }
 
@@ -243,15 +258,17 @@ class View {
     }
 
 
-    set address(addr) {
-        this._address = addr;
+    set address(address) {
+        this._address = address;
         this._addressField.innerText = toBinaryString(this._address, this._wordSize);
+        this._memoryView.clearCellHighlights();
+        this._memoryView.highlightCell(address);
     }
 
 
-    set value(val) {
-        this._value = val;
-        this._valueField.innerText = toBinaryString(val, this._wordSize);
+    set value(value) {
+        this._value = value;
+        this._valueField.innerText = toBinaryString(value, this._wordSize);
     }
 
     set accumulator(acc) {
@@ -311,10 +328,11 @@ class Controller {
         return this._address;
     }
 
-    set address(addr) {
-        this._address = addr;
-        this._machineView.address = addr;
-        this._machineView.value = this._machine.read(addr);
+    set address(address) {
+        this._address = address;
+        this._machineView.address = address;
+        this._machineView.value = this._machine.read(address);
+        this._machine.updateObservers();
     }
 
     get div() {
@@ -331,9 +349,9 @@ class Controller {
         this._addButton("not-button", "NOT",
             () => this._machine.not());
         this._addButton("left-shift-button", "LSHIFT",
-            () => this._machine.leftShift());
+            () => this._machine.lshift());
         this._addButton("right-shift-button", "RSHIFT",
-            () => this._machine.rightShift());
+            () => this._machine.rshift());
         this._addButton("load-button", "LOAD",
             () => {
                 this._machine.load(this.address)
@@ -443,7 +461,7 @@ class ProgramView {
         let row = table.insertRow();
         row.className = "instruction";
         if (isCurrentInstruction) {
-            row.className += " instruction-current";
+            row.classList.add("instruction-current");
         }
         let nameCell = row.insertCell();
         nameCell.innerText = name;
@@ -459,7 +477,7 @@ function sleep(ms) {
 }
 
 window.onload = async () => {
-    const wordSize = 8;
+    const wordSize = 4;
     const memorySize = 2 ** wordSize;
 
     let machine = new Machine(wordSize, memorySize);
@@ -475,10 +493,10 @@ window.onload = async () => {
     machineDiv.appendChild(view.div);
     machineDiv.appendChild(controller.div);
 
-    await testInterpreter(machine, programmerDiv);
+    await testProgram(machine, programmerDiv);
 }
 
-async function testInterpreter(machine, div) {
+async function testProgram(machine, div) {
     machine.write(7, 0);
     machine.write(1, 1);
     // 7 + 1 = 8

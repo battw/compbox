@@ -33,6 +33,15 @@ button {
     color: #292929;
 }
 
+.memory-cell {
+
+}
+
+.memory-cell-highlighted {
+    background-color: bisque;
+    color: #292929;
+}
+
 td {
     background-color: inherit;
     color: inherit;
