@@ -169,6 +169,10 @@ class Machine {
     _updateObservers() {
         this._observers.forEach(obs => obs.update(this));
     }
+
+    applyInstruction(instruction) {
+        this[instruction.name].apply(this, instruction.args);
+    }
 }
 
 
@@ -405,7 +409,7 @@ class Program {
 
     step() {
         let instruction = this.getInstruction(this._programCounter);
-        this._machine[instruction.name].apply(this._machine, instruction.args);
+        this._machine.applyInstruction(instruction);
         this._updateObservers();
         this._programCounter++;
     }
@@ -413,13 +417,12 @@ class Program {
 
 class ProgramView {
     _wordSize;
+    _div;
 
     constructor(wordSize) {
         this._wordSize = wordSize;
         this._div = createDiv("program-view");
     }
-
-    _div;
 
     get div() {
         return this._div;
