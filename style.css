@@ -47,8 +47,14 @@ td {
     color: inherit;
 }
 
-.display-label {
+.logic-view-div {
+    margin-bottom: 0;
+}
+
+.logic-view-label {
+    display: inline-block;
     margin: 10px;
+    width: 100px;
 }
 
 

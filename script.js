@@ -40,6 +40,14 @@ function createDiv(id, classes) {
     return div;
 }
 
+function createLabel(id, classes, text) {
+    let label = document.createElement("label");
+    label.setAttribute("id", id);
+    label.className = classes;
+    label.innerText = text;
+    return label;
+}
+
 class Memory {
     _memorySize;
     _memoryArray;
@@ -236,69 +244,60 @@ class MemoryView {
 }
 
 class View {
-    _registerField;
-    _addressField;
     _memoryView;
-    _valueField;
     _div;
     _address;
-    _value;
 
     constructor(wordSize) {
-        this._div = createDiv("logic-view");
+        this._div = createDiv("view");
         this._wordSize = wordSize;
         this._memoryView = new MemoryView(wordSize);
         this._div.appendChild(this._memoryView.div);
-        this._addFields();
+        this._addComponents();
+        this.address = 0;
     }
-
 
     get div() {
         return this._div;
     }
 
-
     set address(address) {
         this._address = address;
-        this._addressField.innerText = toBinaryString(this._address, this._wordSize);
+        this.div.querySelector('[id="address-field"]').innerText
+            = toBinaryString(this._address, this._wordSize);
         this._memoryView.clearCellHighlights();
         this._memoryView.highlightCell(address);
     }
 
-
     set value(value) {
-        this._value = value;
-        this._valueField.innerText = toBinaryString(value, this._wordSize);
+        this.div.querySelector('[id="value-field"]').innerText
+            = toBinaryString(value, this._wordSize);
     }
 
     set accumulator(acc) {
-        this._registerField.innerText = toBinaryString(acc, this._wordSize);
+        this.div.querySelector('[id="accumulator-field"]').innerText
+            = toBinaryString(acc, this._wordSize);
     }
 
-    _addFields() {
-        this._addLabel("accumulator-label", "Accumulator:");
-        this._registerField = this._addLabel("register-field", "");
-        this._addLabel("address-label", "Address:");
-        this._addressField = this._addLabel("address-field");
-        this._addLabel("value-label", "Value:");
-        this._valueField = this._addLabel("value-field", "");
+    _addComponents() {
+       this.div.appendChild(this._createAccumulator());
+       this.div.appendChild(this._createAddressRegister());
     }
 
-    _addLabel(id, text) {
-        let label = document.createElement("label");
-        label.setAttribute("id", id);
-        label.className = "display-label";
-        label.innerText = text;
-        this._div.appendChild(label);
-        return label;
+    _createAccumulator() {
+        let div = createDiv("accumulator", "logic-view-div");
+        div.appendChild(createLabel("accumulator-label", "logic-view-label", "Accumulator:"));
+        div.appendChild(createLabel("accumulator-field", "logic-view-label", ""));
+        return div;
     }
 
-    _addTextField(id) {
-        let textField = document.createElement("input");
-        textField.setAttribute("id", id);
-        textField.setAttribute("type", "text");
-        this._div.appendChild(textField);
-        return textField;
+    _createAddressRegister() {
+        let div = createDiv("address-register", "logic-view-div");
+        div.appendChild(createLabel("value-label", "logic-view-label", "Value:"));
+        div.appendChild(createLabel("value-field", "logic-view-label", ""));
+        div.appendChild(createLabel("address-label", "logic-view-label", "Address:"));
+        div.appendChild(createLabel("address-field", "logic-view-label", ""));
+        return div;
     }
 
     update(machine) {
@@ -488,7 +487,6 @@ window.onload = async () => {
 
     let machineDiv = document.getElementById("machine-div");
     let programmerDiv = document.getElementById("programmer-div");
-
 
     machineDiv.appendChild(view.div);
     machineDiv.appendChild(controller.div);
