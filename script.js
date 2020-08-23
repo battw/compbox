@@ -97,7 +97,7 @@ class Memory {
 
     _assertValidAddress(address) {
         assertIsInteger(address);
-        if (address < 0 || address > this._memorySize) {
+        if (address < 0 || address >= this._memorySize) {
             throw new Error("address out of bounds");
         }
     }
@@ -118,6 +118,10 @@ class Machine {
         this._memory = new Memory(wordSize, memorySize);
         this._accumulator = 0;
         this._observers = new Array(0);
+        this.addressRegister = 0;
+        this.dataRegister = this.read(this.addressRegister);
+        this.instructionRegister = new Instruction("read", [0]);
+        this._action = () => this.read;
     }
 
 
@@ -139,16 +143,16 @@ class Machine {
         this.updateObservers();
     }
 
-    or(address) {
-        this.accumulator |= this.read(address);
+    or() {
+        this.accumulator |= this.dataRegister;
     }
 
-    and(address) {
-        this.accumulator &= this.read(address);
+    and() {
+        this.accumulator &= this.dataRegister;
     }
 
-    xor(address) {
-        this.accumulator ^= this.read(address);
+    xor(){
+        this.accumulator ^= this.dataRegister;
     }
 
     not() {
@@ -163,12 +167,26 @@ class Machine {
         this.accumulator >>>= 1;
     }
 
-    load(address) {
-        this.accumulator = this._memory.read(address);
+    load() {
+        this.accumulator = this.dataRegister;
     }
 
-    store(address) {
-        this._memory.write(this.accumulator, address);
+    store() {
+        this.write(this.accumulator, this.addressRegister);
+        this.updateObservers();
+    }
+
+    decode() {
+        this._action = this[this.instructionRegister.name];
+        if (this.instructionRegister.args.length > 0) {
+            this.addressRegister = this.instructionRegister.args[0];
+            this.dataRegister = this.read(this.addressRegister);
+        }
+        this.updateObservers();
+    }
+
+    execute() {
+        this._action();
         this.updateObservers();
     }
 
@@ -179,10 +197,6 @@ class Machine {
 
     updateObservers() {
         this._observers.forEach(obs => obs.update(this));
-    }
-
-    applyInstruction(instruction) {
-        this[instruction.name].apply(this, instruction.args);
     }
 }
 
@@ -195,7 +209,6 @@ class MemoryView {
         this._div = createDiv("memory-view");
         this._highlightedAddresses = [];
     }
-
 
     get div() {
         return this._div;
@@ -270,7 +283,7 @@ class View {
     }
 
     set value(value) {
-        this.div.querySelector('[id="value-field"]').innerText
+        this.div.querySelector('[id="data-field"]').innerText
             = toBinaryString(value, this._wordSize);
     }
 
@@ -293,8 +306,8 @@ class View {
 
     _createAddressRegister() {
         let div = createDiv("address-register", "logic-view-div");
-        div.appendChild(createLabel("value-label", "logic-view-label", "Value:"));
-        div.appendChild(createLabel("value-field", "logic-view-label", ""));
+        div.appendChild(createLabel("data-label", "logic-view-label", "Data:"));
+        div.appendChild(createLabel("data-field", "logic-view-label", ""));
         div.appendChild(createLabel("address-label", "logic-view-label", "Address:"));
         div.appendChild(createLabel("address-field", "logic-view-label", ""));
         return div;
@@ -425,8 +438,9 @@ class Program {
     }
 
     step() {
-        let instruction = this.getInstruction(this._programCounter);
-        this._machine.applyInstruction(instruction);
+        this._machine.instructionRegister = this.getInstruction(this._programCounter);
+        this._machine.decode();
+        this._machine.execute();
         this._updateObservers();
         this._programCounter++;
     }

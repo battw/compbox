@@ -34,7 +34,7 @@ button {
 }
 
 .memory-cell {
-
+    border: 1px solid bisque;
 }
 
 .memory-cell-highlighted {
