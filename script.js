@@ -108,16 +108,12 @@ class Memory {
 }
 
 class Machine {
-    _memory;
-    _observers;
-    _accumulator;
-
     constructor(wordSize, memorySize) {
         this.wordSize = wordSize;
         this.memorySize = memorySize;
         this._memory = new Memory(wordSize, memorySize);
         this._accumulator = 0;
-        this._observers = new Array(0);
+        this._observers = [this];
         this.addressRegister = 0;
         this.dataRegister = this.read(this.addressRegister);
         this.instructionRegister = new Instruction("read", [0]);
@@ -145,30 +141,37 @@ class Machine {
 
     or() {
         this.accumulator |= this.dataRegister;
+        this.updateObservers();
     }
 
     and() {
         this.accumulator &= this.dataRegister;
+        this.updateObservers();
     }
 
     xor(){
         this.accumulator ^= this.dataRegister;
+        this.updateObservers();
     }
 
     not() {
         this.accumulator = ~this.accumulator;
+        this.updateObservers();
     }
 
     lshift() {
         this.accumulator <<= 1;
+        this.updateObservers();
     }
 
     rshift() {
         this.accumulator >>>= 1;
+        this.updateObservers();
     }
 
     load() {
         this.accumulator = this.dataRegister;
+        this.updateObservers();
     }
 
     store() {
@@ -180,14 +183,16 @@ class Machine {
         this._action = this[this.instructionRegister.name];
         if (this.instructionRegister.args.length > 0) {
             this.addressRegister = this.instructionRegister.args[0];
-            this.dataRegister = this.read(this.addressRegister);
         }
         this.updateObservers();
     }
 
     execute() {
         this._action();
-        this.updateObservers();
+    }
+
+    update(_) {
+        this.dataRegister = this.read(this.addressRegister);
     }
 
     registerObserver(obs) {
