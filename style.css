@@ -37,7 +37,7 @@ button {
     border: 1px solid bisque;
 }
 
-.memory-cell-highlighted {
+.memory-cell-current {
     background-color: bisque;
     color: #292929;
 }

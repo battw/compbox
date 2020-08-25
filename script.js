@@ -40,12 +40,20 @@ function createDiv(id, classes) {
     return div;
 }
 
-function createLabel(id, classes, text) {
+function createLabel(id, className, text) {
     let label = document.createElement("label");
     label.setAttribute("id", id);
-    label.className = classes;
+    label.className = className;
     label.innerText = text;
     return label;
+}
+
+function createButton(id, className, text) {
+    let button = document.createElement("button");
+    button.setAttribute("id", id);
+    button.className = className;
+    button.innerText = text;
+    return button;
 }
 
 class Memory {
@@ -108,14 +116,26 @@ class Memory {
 }
 
 class Machine {
+    get dataRegister() {
+        return this._dataRegister;
+    }
+    get addressRegister() {
+        return this._addressRegister;
+    }
+
+    set addressRegister(value) {
+        this._addressRegister = value;
+        this.updateObservers();
+    }
+
     constructor(wordSize, memorySize) {
         this.wordSize = wordSize;
         this.memorySize = memorySize;
         this._memory = new Memory(wordSize, memorySize);
         this._accumulator = 0;
         this._observers = [this];
-        this.addressRegister = 0;
-        this.dataRegister = this.read(this.addressRegister);
+        this._addressRegister = 0;
+        this._dataRegister = this.read(this._addressRegister);
         this.instructionRegister = new Instruction("read", [0]);
         this._action = () => this.read;
     }
@@ -140,17 +160,17 @@ class Machine {
     }
 
     or() {
-        this.accumulator |= this.dataRegister;
+        this.accumulator |= this._dataRegister;
         this.updateObservers();
     }
 
     and() {
-        this.accumulator &= this.dataRegister;
+        this.accumulator &= this._dataRegister;
         this.updateObservers();
     }
 
     xor(){
-        this.accumulator ^= this.dataRegister;
+        this.accumulator ^= this._dataRegister;
         this.updateObservers();
     }
 
@@ -170,19 +190,19 @@ class Machine {
     }
 
     load() {
-        this.accumulator = this.dataRegister;
+        this.accumulator = this._dataRegister;
         this.updateObservers();
     }
 
     store() {
-        this.write(this.accumulator, this.addressRegister);
+        this.write(this.accumulator, this._addressRegister);
         this.updateObservers();
     }
 
     decode() {
         this._action = this[this.instructionRegister.name];
         if (this.instructionRegister.args.length > 0) {
-            this.addressRegister = this.instructionRegister.args[0];
+            this._addressRegister = this.instructionRegister.args[0];
         }
         this.updateObservers();
     }
@@ -192,7 +212,7 @@ class Machine {
     }
 
     update(_) {
-        this.dataRegister = this.read(this.addressRegister);
+        this._dataRegister = this.read(this._addressRegister);
     }
 
     registerObserver(obs) {
@@ -207,12 +227,10 @@ class Machine {
 
 
 class MemoryView {
-    _div;
-
     constructor(wordSize) {
         this._wordSize = wordSize;
         this._div = createDiv("memory-view");
-        this._highlightedAddresses = [];
+        this._address = 0;
     }
 
     get div() {
@@ -220,6 +238,7 @@ class MemoryView {
     }
 
     update(machine) {
+        this._address = machine.addressRegister;
         let table = this._buildTable(machine);
         if (this._div.firstChild) {
             this._div.removeChild(this._div.firstChild);
@@ -247,49 +266,26 @@ class MemoryView {
         cell.innerText = toBinaryString(value, this._wordSize);
         cell.setAttribute("data-address", address.toString());
         cell.classList.add("memory-cell");
-        if (this._highlightedAddresses.includes(address)) {
-            cell.classList.add("memory-cell-highlighted");
+        if (this._address === address) {
+            cell.classList.add("memory-cell-current");
         }
-    }
-
-    highlightCell(address) {
-        this._highlightedAddresses.push(address);
-    }
-
-    clearCellHighlights() {
-        this._highlightedAddresses =[];
     }
 }
 
 class View {
-    _memoryView;
-    _div;
-    _address;
-
     constructor(wordSize) {
         this._div = createDiv("view");
         this._wordSize = wordSize;
         this._memoryView = new MemoryView(wordSize);
         this._div.appendChild(this._memoryView.div);
-        this._addComponents();
-        this.address = 0;
+        this._controlPanel = new ControlPanel();
+        this._div.appendChild(this._controlPanel.div);
+        this._registerView = new RegisterView(wordSize);
+        this._div.appendChild(this._registerView.div);
     }
 
     get div() {
         return this._div;
-    }
-
-    set address(address) {
-        this._address = address;
-        this.div.querySelector('[id="address-field"]').innerText
-            = toBinaryString(this._address, this._wordSize);
-        this._memoryView.clearCellHighlights();
-        this._memoryView.highlightCell(address);
-    }
-
-    set value(value) {
-        this.div.querySelector('[id="data-field"]').innerText
-            = toBinaryString(value, this._wordSize);
     }
 
     set accumulator(acc) {
@@ -297,9 +293,31 @@ class View {
             = toBinaryString(acc, this._wordSize);
     }
 
-    _addComponents() {
-       this.div.appendChild(this._createAccumulator());
-       this.div.appendChild(this._createAddressRegister());
+    update(machine) {
+        this._memoryView.update(machine);
+        this._registerView.update(machine);
+    }
+}
+
+class RegisterView {
+    constructor(wordSize) {
+        this._wordSize = wordSize;
+        this._div = createDiv("register-view");
+        this._addComponents(this._div);
+    }
+
+    get div() {
+        return this._div;
+    }
+
+    set accumulator(acc) {
+        this.div.querySelector('[id="accumulator-field"]').innerText
+            = toBinaryString(acc, this._wordSize);
+    }
+
+    _addComponents(div) {
+        div.appendChild(this._createAccumulator());
+        div.appendChild(this._createAddressRegister());
     }
 
     _createAccumulator() {
@@ -318,82 +336,63 @@ class View {
         return div;
     }
 
+    _displayAddress(address) {
+        this.div.querySelector('[id="address-field"]').innerText
+            = toBinaryString(address, this._wordSize);
+    }
+
+    _displayData(value) {
+        this.div.querySelector('[id="data-field"]').innerText
+            = toBinaryString(value, this._wordSize);
+    }
+
     update(machine) {
         this.accumulator = machine.accumulator;
-        this.value = machine.read(this._address);
-        this._memoryView.update(machine);
+        this._displayAddress(machine.addressRegister);
+        this._displayData(machine.dataRegister);
     }
 }
 
-class Controller {
-    _machine;
-    _machineView;
-    _address;
-    _div;
-
-    constructor(machine, machineView) {
-        this._machine = machine;
-        this._machineView = machineView;
-        this.address = 0;
-        this._div = createDiv("controller");
-        this._addButtons();
-        this._registerTableClickCallback();
-    }
-
-
-    get address() {
-        return this._address;
-    }
-
-    set address(address) {
-        this._address = address;
-        this._machineView.address = address;
-        this._machineView.value = this._machine.read(address);
-        this._machine.updateObservers();
+class ControlPanel {
+    constructor() {
+        this._div = createDiv("control-panel");
+        this._addButtons(this._div);
     }
 
     get div() {
         return this._div;
     }
 
-    _addButtons() {
-        this._addButton("and-button", "AND",
-            () => this._machine.and(this.address));
-        this._addButton("or-button", "OR",
-            () => this._machine.or(this.address));
-        this._addButton("xor-button", "XOR",
-            () => this._machine.xor(this.address));
-        this._addButton("not-button", "NOT",
-            () => this._machine.not());
-        this._addButton("left-shift-button", "LSHIFT",
-            () => this._machine.lshift());
-        this._addButton("right-shift-button", "RSHIFT",
-            () => this._machine.rshift());
-        this._addButton("load-button", "LOAD",
-            () => {
-                this._machine.load(this.address)
-            });
-        this._addButton("store-button", "STORE",
-            () => {
-                this._machine.store(this.address)
-            });
+    _addButtons(div) {
+        let children = [
+            createButton("and-button", "control-panel-button", "AND"),
+            createButton("or-button", "control-panel-button", "OR"),
+            createButton("xor-button", "control-panel-button", "XOR"),
+            createButton("not-button", "control-panel-button", "NOT"),
+            createButton("left-shift-button", "control-panel-button", "LSHIFT"),
+            createButton("right-shift-button", "control-panel-button", "RSHIFT"),
+            createButton("load-button", "control-panel-button", "LOAD"),
+            createButton("store-button", "control-panel-button", "STORE"),
+        ];
+        children.forEach(child => div.appendChild(child));
+    }
+}
+
+class Controller {
+    constructor(machine, view) {
+        view.div.addEventListener("click", this._createHandler(machine));
     }
 
-    _addButton(id, text, callback) {
-        let button = document.createElement("button");
-        button.setAttribute("id", id);
-        button.innerText = text;
-        button.addEventListener("click", callback);
-        this._div.appendChild(button);
-    }
-
-    _registerTableClickCallback() {
-        document.addEventListener("click",
-            (event) => {
-                if (event.originalTarget.classList.contains("memory-cell")) {
-                    this.address = Number(event.originalTarget.getAttribute("data-address"));
-                }
-            });
+    _createHandler(machine) {
+        return (event) => {
+            let target = event.originalTarget;
+            if (target.classList.contains("memory-cell")) {
+                machine.addressRegister = Number(target.getAttribute("data-address"));
+            }
+            if (target.classList.contains("control-panel-button")) {
+                machine[target.innerText.toLowerCase()]();
+            }
+        }
     }
 }
 
@@ -505,12 +504,10 @@ window.onload = async () => {
     machine.registerObserver(view);
 
     let machineDiv = document.getElementById("machine-div");
-    let programmerDiv = document.getElementById("programmer-div");
-
     machineDiv.appendChild(view.div);
-    machineDiv.appendChild(controller.div);
 
-    await testProgram(machine, programmerDiv);
+    //let programmerDiv = document.getElementById("programmer-div");
+    // await testProgram(machine, programmerDiv);
 }
 
 async function testProgram(machine, div) {
