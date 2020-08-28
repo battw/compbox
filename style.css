@@ -24,6 +24,14 @@ button {
     background-color: #222222;
     margin: 2px;
 }
+.instruction-table {
+    display: inline-block;
+}
+
+.program-panel {
+    display: inline-block;
+}
+
 .instruction {
     margin: 2px;
 }

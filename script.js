@@ -57,12 +57,6 @@ function createButton(id, className, text) {
 }
 
 class Memory {
-    _memorySize;
-    _memoryArray;
-    _observers;
-    _wordSize;
-    _wordMask;
-
     constructor(wordSize, memorySize) {
         this._wordSize = wordSize;
         this._wordMask = 2 ** wordSize - 1;
@@ -116,18 +110,6 @@ class Memory {
 }
 
 class Machine {
-    get dataRegister() {
-        return this._dataRegister;
-    }
-    get addressRegister() {
-        return this._addressRegister;
-    }
-
-    set addressRegister(value) {
-        this._addressRegister = value;
-        this.updateObservers();
-    }
-
     constructor(wordSize, memorySize) {
         this.wordSize = wordSize;
         this.memorySize = memorySize;
@@ -140,6 +122,18 @@ class Machine {
         this._action = () => this.read;
     }
 
+    get dataRegister() {
+        return this._dataRegister;
+    }
+
+    get addressRegister() {
+        return this._addressRegister;
+    }
+
+    set addressRegister(value) {
+        this._addressRegister = value;
+        this.updateObservers();
+    }
 
     get accumulator() {
         return this._accumulator;
@@ -169,7 +163,7 @@ class Machine {
         this.updateObservers();
     }
 
-    xor(){
+    xor() {
         this.accumulator ^= this._dataRegister;
         this.updateObservers();
     }
@@ -209,6 +203,7 @@ class Machine {
 
     execute() {
         this._action();
+        this.updateObservers();
     }
 
     update(_) {
@@ -410,6 +405,8 @@ class Program {
         this._instructions = new Array(0);
         this._observers = new Array(0);
         this._programCounter = 0;
+        this.running = false;
+        this._phase = "decode";
     }
 
     get length() {
@@ -442,18 +439,33 @@ class Program {
     }
 
     step() {
-        this._machine.instructionRegister = this.getInstruction(this._programCounter);
-        this._machine.decode();
-        this._machine.execute();
+        if (this._phase === "decode") {
+            this._machine.instructionRegister = this.getInstruction(this._programCounter);
+            this._machine.decode();
+            this._phase = "execute";
+        } else if (this._phase === "execute") {
+            this._machine.execute();
+            this._phase = "decode";
+            this._programCounter++;
+        }
         this._updateObservers();
-        this._programCounter++;
+    }
+
+    async play() {
+        this.running = true;
+        while (this.running && this._programCounter < this.length) {
+           this.step();
+           this.running &&= this._programCounter < this.length;
+           await sleep(1000);
+        }
+    }
+
+    stop() {
+        this.running = false;
     }
 }
 
 class ProgramView {
-    _wordSize;
-    _div;
-
     constructor(wordSize) {
         this._wordSize = wordSize;
         this._div = createDiv("program-view");
@@ -464,14 +476,23 @@ class ProgramView {
     }
 
     update(program) {
+        // Remove previous contents from div.
+        this._div.textContent = "";
+        this._div.appendChild(this._createProgramPanel());
+        this._div.appendChild(this._createTable(program));
+
+    }
+
+    _createTable(program) {
         let table = document.createElement("table");
+        table.id = "instruction-table";
         for (let i = 0; i < program.length; i++) {
             let instruction = program.getInstruction(i);
             let isCurrentInstruction = i === program.counter;
-            this._addInstruction(instruction.name, instruction.args, table, isCurrentInstruction);
+            this._addInstruction(
+                instruction.name, instruction.args, table, isCurrentInstruction);
         }
-        this._div.textContent = "";
-        this._div.appendChild(table);
+        return table;
     }
 
     _addInstruction(name, args, table, isCurrentInstruction) {
@@ -485,6 +506,42 @@ class ProgramView {
         let argString = (args.length > 0) ? toBinaryString(args[0], this._wordSize) : "";
         let argCell = row.insertCell();
         argCell.innerText = argString;
+    }
+
+    _createProgramPanel() {
+        let panel = createDiv("program-panel");
+        let buttons = [
+            createButton("play-button", "program-button", "Play"),
+            createButton("stop-button", "program-button", "Stop"),
+            createButton("step-button", "program-button", "Step"),
+        ];
+        buttons.forEach(button => panel.appendChild(button));
+        return panel;
+    }
+}
+
+class ProgramControl {
+    constructor(program, programView) {
+        programView.div.addEventListener("click", this._createHandler(program));
+    }
+
+    _createHandler(program) {
+        return async (event) => {
+            let target = event.originalTarget;
+            if (target.classList.contains("program-button")) {
+                switch (target.id) {
+                    case "play-button":
+                        await program.play();
+                        break;
+                    case "stop-button":
+                        program.stop();
+                        break;
+                    case "step-button":
+                        program.step();
+                        break;
+                }
+            }
+        }
     }
 }
 
@@ -506,8 +563,8 @@ window.onload = async () => {
     let machineDiv = document.getElementById("machine-div");
     machineDiv.appendChild(view.div);
 
-    //let programmerDiv = document.getElementById("programmer-div");
-    // await testProgram(machine, programmerDiv);
+    let programmerDiv = document.getElementById("programmer-div");
+    await testProgram(machine, programmerDiv);
 }
 
 async function testProgram(machine, div) {
@@ -559,11 +616,9 @@ async function testProgram(machine, div) {
     }
 
     let programView = new ProgramView(machine.wordSize);
+    let programControl = new ProgramControl(program, programView);
+
     program.registerObserver(programView);
     div.appendChild(programView.div);
 
-    while (program.counter < program.length) {
-        program.step();
-        await sleep(1000);
-    }
 }
