@@ -1,5 +1,4 @@
 //TODO replace classname, id and attributename literals with Constants.
-//TODO refactor initialisation of each class to explicitly name each instance variables in constructor.
 
 
 "use strict";
@@ -63,7 +62,6 @@ class Memory {
         this._memorySize = memorySize;
         this._memoryArray = new Array(memorySize);
         this._populateMemory();
-        this._observers = new Array(0);
     }
 
 
@@ -313,6 +311,7 @@ class RegisterView {
     _addComponents(div) {
         div.appendChild(this._createAccumulator());
         div.appendChild(this._createAddressRegister());
+        div.appendChild(this._createInstructionRegister());
     }
 
     _createAccumulator() {
@@ -331,20 +330,29 @@ class RegisterView {
         return div;
     }
 
-    _displayAddress(address) {
-        this.div.querySelector('[id="address-field"]').innerText
-            = toBinaryString(address, this._wordSize);
+    _createInstructionRegister() {
+        let div = createDiv("instruction-register", "logic-view-div");
+        div.appendChild(createLabel("instruction-label", "logic-view-label", "Instruction:"));
+        div.appendChild(createLabel("instruction-field", "logic-view-label", ""));
+        return div;
     }
 
-    _displayData(value) {
-        this.div.querySelector('[id="data-field"]').innerText
+
+    _updateBinaryField(id, value) {
+        this.div.querySelector(`[id="${id}"]`).innerText
             = toBinaryString(value, this._wordSize);
+    }
+
+    _updateStringField(id, value) {
+        this.div.querySelector(`[id="${id}"]`).innerText
+            = value;
     }
 
     update(machine) {
         this.accumulator = machine.accumulator;
-        this._displayAddress(machine.addressRegister);
-        this._displayData(machine.dataRegister);
+        this._updateBinaryField("address-field", machine.addressRegister);
+        this._updateBinaryField("data-field", machine.dataRegister);
+        this._updateStringField("instruction-field", machine.instructionRegister.name);
     }
 }
 
