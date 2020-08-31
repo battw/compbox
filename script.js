@@ -281,6 +281,9 @@ class View {
         return this._div;
     }
 
+    /**
+     * @param {Number} acc
+     */
     set accumulator(acc) {
         this.div.querySelector('[id="accumulator-field"]').innerText
             = toBinaryString(acc, this._wordSize);
@@ -303,6 +306,9 @@ class RegisterView {
         return this._div;
     }
 
+    /**
+     * @param {Number} acc
+     */
     set accumulator(acc) {
         this.div.querySelector('[id="accumulator-field"]').innerText
             = toBinaryString(acc, this._wordSize);
@@ -463,7 +469,7 @@ class Program {
         this.running = true;
         while (this.running && this._programCounter < this.length) {
            this.step();
-           this.running &&= this._programCounter < this.length;
+           this.running = this.running && this._programCounter < this.length;
            await sleep(1000);
         }
     }
@@ -564,7 +570,7 @@ window.onload = async () => {
 
     let machine = new Machine(wordSize, memorySize);
     let view = new View(wordSize);
-    let controller = new Controller(machine, view);
+    new Controller(machine, view);
 
     machine.registerObserver(view);
 
@@ -624,9 +630,8 @@ async function testProgram(machine, div) {
     }
 
     let programView = new ProgramView(machine.wordSize);
-    let programControl = new ProgramControl(program, programView);
+    new ProgramControl(program, programView);
 
     program.registerObserver(programView);
     div.appendChild(programView.div);
-
 }
